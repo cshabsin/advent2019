@@ -10,17 +10,31 @@ func Run(instructions []int) ([]int, error) {
 	ip := 0
 	for {
 		var opwidth int
-		switch buffer[ip] {
+		opcode := buffer[ip] % 100
+		modes := makeModes(buffer[ip])
+		switch opcode {
 		case 1:
 			// ADD
-			a := buffer[buffer[ip+1]]
-			b := buffer[buffer[ip+2]]
+			a, err := modes.evalParam(0, buffer, buffer[ip+1])
+			if err != nil {
+				return nil, err
+			}
+			b, err := modes.evalParam(1, buffer, buffer[ip+2])
+			if err != nil {
+				return nil, err
+			}
 			buffer[buffer[ip+3]] = a + b
 			opwidth = 4
 		case 2:
 			// MUL
-			a := buffer[buffer[ip+1]]
-			b := buffer[buffer[ip+2]]
+			a, err := modes.evalParam(0, buffer, buffer[ip+1])
+			if err != nil {
+				return nil, err
+			}
+			b, err := modes.evalParam(1, buffer, buffer[ip+2])
+			if err != nil {
+				return nil, err
+			}
 			buffer[buffer[ip+3]] = a * b
 			opwidth = 4
 		case 99:
