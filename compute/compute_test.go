@@ -31,7 +31,8 @@ func TestComputeNoIO(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		got, _, err := Run(tc.in, nil)
+		intcode := NewIntcode(tc.in, nil)
+		got, _, err := intcode.Run()
 		if err != nil {
 			t.Errorf("Run(%q): unexpected error: %v", tc.desc, err)
 			continue
@@ -108,7 +109,8 @@ func TestCompute(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		got, gotout, err := Run(tc.inbuf, tc.inputs)
+		intcode := NewIntcode(tc.inbuf, tc.inputs)
+		got, gotout, err := intcode.Run()
 		if err != nil {
 			t.Errorf("Run(%q): unexpected error: %v", tc.desc, err)
 			continue
