@@ -2,8 +2,8 @@ package compute
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 func sizeUp(buffer []int64, index int64) []int64 {
@@ -14,14 +14,9 @@ func sizeUp(buffer []int64, index int64) []int64 {
 }
 
 type Intcode struct {
-	memory []int64
-	ip     int
-
-	input []int64
-	inptr int
-
-	outbuf []int64
-
+	memory  []int64
+	ip      int
+	io      IO
 	relbase int64
 }
 
@@ -38,7 +33,7 @@ func ParseFile(content []byte) ([]int64, error) {
 	return buf, nil
 }
 
-func NewIntcode(inbuf, inputs []int64) *Intcode {
+func NewIntcode(inbuf []int64, io IO) *Intcode {
 	// copy the buffer to leave original unchanged.
 	buffer := make([]int64, 0, len(inbuf))
 	for _, b := range inbuf {
@@ -46,8 +41,7 @@ func NewIntcode(inbuf, inputs []int64) *Intcode {
 	}
 	return &Intcode{
 		memory: buffer,
-		input:  inputs,
-		outbuf: []int64{},
+		io:     io,
 	}
 }
 
@@ -68,7 +62,7 @@ func (i *Intcode) setMemoryByParam(index int, value int64) {
 	var target int64
 	switch m.getMode(index) {
 	case 0:
-		target  = i.memory[i.ip+1+index]
+		target = i.memory[i.ip+1+index]
 	case 2:
 		target = i.relbase + i.memory[i.ip+1+index]
 	}
@@ -77,23 +71,18 @@ func (i *Intcode) setMemoryByParam(index int, value int64) {
 }
 
 func (i *Intcode) read() (int64, error) {
-	if i.inptr >= len(i.input) {
-		return 0, fmt.Errorf("read past end of input")
-	}
-	rc := i.input[i.inptr]
-	i.inptr += 1
-	return rc, nil
+	return i.io.Read()
 }
 
-func (i *Intcode) output(val int64) {
-	i.outbuf = append(i.outbuf, val)
+func (i *Intcode) output(val int64) error {
+	return i.io.Write(val)
 }
 
 func (i *Intcode) jump(newIp int) {
 	i.ip = newIp
 }
 
-func (i *Intcode) Run() ([]int64, []int64, error) {
+func (i *Intcode) Run() ([]int64, error) {
 	for {
 		var opwidth int
 		switch i.opcode() {
@@ -101,11 +90,11 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			// ADD
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			b, err := i.evalParam(1)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			i.setMemoryByParam(2, a+b)
 			opwidth = 4
@@ -113,11 +102,11 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			// MUL
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			b, err := i.evalParam(1)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			i.setMemoryByParam(2, a*b)
 			opwidth = 4
@@ -125,7 +114,7 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			// IN
 			val, err := i.read()
 			if err != nil {
-				return nil, nil, fmt.Errorf("IN: %v at IP %d", err, i.ip)
+				return nil, fmt.Errorf("IN: %v at IP %d", err, i.ip)
 			}
 			i.setMemoryByParam(0, val)
 			opwidth = 2
@@ -133,7 +122,7 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			// OUT
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			i.output(a)
 			opwidth = 2
@@ -142,12 +131,12 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			opwidth = 3
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if a != 0 {
 				b, err := i.evalParam(1)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				i.jump(int(b))
 				opwidth = 0
@@ -157,12 +146,12 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			opwidth = 3
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if a == 0 {
 				b, err := i.evalParam(1)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				i.jump(int(b))
 				opwidth = 0
@@ -171,11 +160,11 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			// LT (less than)
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			b, err := i.evalParam(1)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if a < b {
 				i.setMemoryByParam(2, 1)
@@ -187,11 +176,11 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			// EQ (equal)
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			b, err := i.evalParam(1)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if a == b {
 				i.setMemoryByParam(2, 1)
@@ -203,15 +192,15 @@ func (i *Intcode) Run() ([]int64, []int64, error) {
 			// RELBASE
 			a, err := i.evalParam(0)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			i.relbase += a
 			opwidth = 2
 		case 99:
 			// EXIT
-			return i.memory, i.outbuf, nil
+			return i.memory, nil
 		default:
-			return nil, nil, fmt.Errorf("Invalid opcode %d at IP %d", i.memory[i.ip], i.ip)
+			return nil, fmt.Errorf("Invalid opcode %d at IP %d", i.memory[i.ip], i.ip)
 		}
 		i.ip += opwidth
 	}
