@@ -30,5 +30,12 @@ func main() {
 		fmt.Printf("compute.Run: %v\n", err)
 		return
 	}
-	fmt.Printf("out: %v\n", out)
+	fmt.Printf("out(1): %v\n", out)
+	input = []int{5}
+	_, out, err = compute.Run(buf, input)
+	if err != nil {
+		fmt.Printf("compute.Run: %v\n", err)
+		return
+	}
+	fmt.Printf("out(5): %v\n", out)
 }
