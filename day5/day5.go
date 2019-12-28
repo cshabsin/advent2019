@@ -24,18 +24,11 @@ func main() {
 		}
 		buf = append(buf, intval)
 	}
-	for noun := 0; noun < 100; noun++ {
-		for verb := 0; verb < 100; verb++ {
-			buf[1] = noun
-			buf[2] = verb
-			after, _, err := compute.Run(buf, nil)
-			if err != nil {
-				fmt.Printf("error for noun %d, verb %d: %v\n", noun, verb, err)
-				continue
-			}
-			if after[0] == 19690720 {
-				fmt.Printf("noun %d, verb %d\n", noun, verb)
-			}
-		}
+	input := []int{1}
+	_, out, err := compute.Run(buf, input)
+	if err != nil {
+		fmt.Printf("compute.Run: %v\n", err)
+		return
 	}
+	fmt.Printf("out: %v\n", out)
 }
