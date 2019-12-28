@@ -1,38 +1,57 @@
 package compute
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+	"strconv"
+)
 
-func sizeUp(buffer []int, index int) []int {
-	for index >= len(buffer) {
+func sizeUp(buffer []int64, index int64) []int64 {
+	for index >= int64(len(buffer)) {
 		buffer = append(buffer, 0)
 	}
 	return buffer
 }
 
 type Intcode struct {
-	memory []int
+	memory []int64
 	ip     int
 
-	input []int
+	input []int64
 	inptr int
 
-	outbuf []int
+	outbuf []int64
+
+	relbase int64
 }
 
-func NewIntcode(inbuf, inputs []int) *Intcode {
+func ParseFile(content []byte) ([]int64, error) {
+	vals := strings.Split(string(content), ",")
+	buf := make([]int64, 0, len(vals))
+	for _, v := range vals {
+		intval, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		buf = append(buf, intval)
+	}
+	return buf, nil
+}
+
+func NewIntcode(inbuf, inputs []int64) *Intcode {
 	// copy the buffer to leave original unchanged.
-	buffer := make([]int, 0, len(inbuf))
+	buffer := make([]int64, 0, len(inbuf))
 	for _, b := range inbuf {
 		buffer = append(buffer, b)
 	}
 	return &Intcode{
 		memory: buffer,
 		input:  inputs,
-		outbuf: []int{},
+		outbuf: []int64{},
 	}
 }
 
-func (i Intcode) opcode() int {
+func (i Intcode) opcode() int64 {
 	return i.memory[i.ip] % 100
 }
 
@@ -40,18 +59,24 @@ func (i Intcode) modes() modes {
 	return makeModes(i.memory[i.ip])
 }
 
-func (i Intcode) evalParam(index int) (int, error) {
-	return makeModes(i.memory[i.ip]).evalParam(index, i.memory, i.memory[i.ip+1+index])
+func (i Intcode) evalParam(index int) (int64, error) {
+	return makeModes(i.memory[i.ip]).evalParam(index, i.memory, i.memory[i.ip+1+index], i.relbase)
 }
 
-func (i *Intcode) setMemoryByParam(index, value int) {
-	target := i.memory[i.ip+1+index]
-	fmt.Printf("target: %d\n", target)
+func (i *Intcode) setMemoryByParam(index int, value int64) {
+	m := makeModes(i.memory[i.ip])
+	var target int64
+	switch m.getMode(index) {
+	case 0:
+		target  = i.memory[i.ip+1+index]
+	case 2:
+		target = i.relbase + i.memory[i.ip+1+index]
+	}
 	i.memory = sizeUp(i.memory, target)
 	i.memory[target] = value
 }
 
-func (i *Intcode) read() (int, error) {
+func (i *Intcode) read() (int64, error) {
 	if i.inptr >= len(i.input) {
 		return 0, fmt.Errorf("read past end of input")
 	}
@@ -60,7 +85,7 @@ func (i *Intcode) read() (int, error) {
 	return rc, nil
 }
 
-func (i *Intcode) output(val int) {
+func (i *Intcode) output(val int64) {
 	i.outbuf = append(i.outbuf, val)
 }
 
@@ -68,7 +93,7 @@ func (i *Intcode) jump(newIp int) {
 	i.ip = newIp
 }
 
-func (i *Intcode) Run() ([]int, []int, error) {
+func (i *Intcode) Run() ([]int64, []int64, error) {
 	for {
 		var opwidth int
 		switch i.opcode() {
@@ -124,7 +149,7 @@ func (i *Intcode) Run() ([]int, []int, error) {
 				if err != nil {
 					return nil, nil, err
 				}
-				i.jump(b)
+				i.jump(int(b))
 				opwidth = 0
 			}
 		case 6:
@@ -139,7 +164,7 @@ func (i *Intcode) Run() ([]int, []int, error) {
 				if err != nil {
 					return nil, nil, err
 				}
-				i.jump(b)
+				i.jump(int(b))
 				opwidth = 0
 			}
 		case 7:
@@ -174,6 +199,14 @@ func (i *Intcode) Run() ([]int, []int, error) {
 				i.setMemoryByParam(2, 0)
 			}
 			opwidth = 4
+		case 9:
+			// RELBASE
+			a, err := i.evalParam(0)
+			if err != nil {
+				return nil, nil, err
+			}
+			i.relbase += a
+			opwidth = 2
 		case 99:
 			// EXIT
 			return i.memory, i.outbuf, nil
