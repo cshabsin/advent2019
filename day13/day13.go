@@ -70,7 +70,7 @@ func (b board) Read() (int64, error) {
 	return v, nil
 }
 
-func (b *board) setVal(posX, posY int, val int) {
+func (b *board) setVal(posX, posY, val int) {
 	for posX >= len(b.board) {
 		b.board = append(b.board, nil)
 	}
