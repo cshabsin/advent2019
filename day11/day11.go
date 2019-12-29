@@ -18,16 +18,16 @@ func main() {
 		log.Fatal(err)
 	}
 	pb := &paintBot{
-		posX: 10000,
-		posY: 10000,
+		posX: 100,
+		posY: 100,
 	}
+	pb.setVal(100, 100, true)
 	intcode := compute.NewIntcode(buf, pb)
 	if _, err := intcode.Run(); err != nil {
 		fmt.Printf("compute.Run: %v\n", err)
 		return
 	}
-	//	fmt.Printf("out: %v\n", pb.out)
-	//      fmt.Printf("board: %v\n", pb.board)
+
 	set := 0
 	for _, row := range pb.painted {
 		for _, v := range row {
@@ -37,6 +37,38 @@ func main() {
 		}
 	}
 	fmt.Printf("set: %d\n", set)
+
+	pb = &paintBot{
+		posX: 100,
+		posY: 100,
+	}
+	pb.setVal(100, 100, true)
+	intcode = compute.NewIntcode(buf, pb)
+	if _, err := intcode.Run(); err != nil {
+		fmt.Printf("compute.Run: %v\n", err)
+		return
+	}
+	var firstRow int
+	for i := range pb.board {
+		if pb.board[i] != nil {
+			firstRow = i
+			break
+		}
+	}
+	for i := firstRow; i<len(pb.board); i++ {
+		if pb.board[i] == nil {
+			break
+		}
+		var c []rune
+		for _, x := range pb.board[i] {
+			if x {
+				c = append(c, 'X')
+			} else {
+				c = append(c, ' ')
+			}
+		}
+		fmt.Printf("%s\n", string(c))
+	}
 }
 
 type paintBot struct {
@@ -61,6 +93,23 @@ func (p paintBot) Read() (int64, error) {
 		return 1, nil
 	}
 	return 0, nil
+}
+
+func (p *paintBot) setVal(posX, posY int, val bool) {
+	for posX >= len(p.board) {
+		p.board = append(p.board, nil)
+	}
+	for posY >= len(p.board[posX]) {
+		p.board[posX] = append(p.board[posX], false)
+	}
+	for posX >= len(p.painted) {
+		p.painted = append(p.painted, nil)
+	}
+	for posY >= len(p.painted[p.posX]) {
+		p.painted[posX] = append(p.painted[posX], false)
+	}
+	p.painted[posX][posY] = true
+	p.board[posX][posY] = val
 }
 
 func (p *paintBot) Write(val int64) error {
@@ -91,23 +140,10 @@ func (p *paintBot) Write(val int64) error {
 			return fmt.Errorf("invalid dir %d", p.dir)
 		}
 	} else {
-		for p.posX >= len(p.board) {
-			p.board = append(p.board, []bool{})
-		}
-		for p.posY >= len(p.board[p.posX]) {
-			p.board[p.posX] = append(p.board[p.posX], false)
-		}
-		for p.posX >= len(p.painted) {
-			p.painted = append(p.painted, []bool{})
-		}
-		for p.posY >= len(p.painted[p.posX]) {
-			p.painted[p.posX] = append(p.painted[p.posX], false)
-		}
-		p.painted[p.posX][p.posY] = true
 		if val == 0 {
-			p.board[p.posX][p.posY] = false
+			p.setVal(p.posX, p.posY, false)
 		} else if val == 1 {
-			p.board[p.posX][p.posY] = true
+			p.setVal(p.posX, p.posY, true)
 		} else {
 			return fmt.Errorf("bad val during paint phase: %d", val)
 		}
