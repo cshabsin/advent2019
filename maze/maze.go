@@ -1,5 +1,7 @@
 package maze
 
+import "fmt"
+
 type Board struct {
 	// offsets, to allow for negative logical coords
 	offsetX, offsetY int
@@ -65,5 +67,27 @@ func (b *Board) SetVal(posX, posY, val int) {
 	for x >= len(b.board[y]) {
 		b.board[y] = append(b.board[y], 0)
 	}
-	b.board[x][y] = val
+	b.board[y][x] = val
+}
+
+func (b Board) Print() {
+	for y := 0; y < len(b.board); y++ {
+		for x := 0; x < len(b.board[y]); x++ {
+			switch b.board[y][x] {
+			case 0:
+				fmt.Printf(" ")
+			case 1:
+				fmt.Printf(".")
+			case 2:
+				fmt.Printf("X")
+			case 3:
+				fmt.Printf("O")
+			}
+		}
+		fmt.Printf("\n")
+	}
+}
+
+func (b Board) Board() [][]int {
+	return b.board
 }
