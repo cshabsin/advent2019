@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cshabsin/advent2019/compute"
+	"github.com/cshabsin/advent2019/maze"
 )
 
 func main() {
@@ -22,37 +23,19 @@ func main() {
 		log.Fatal(err)
 	}
 	reader := bufio.NewReader(os.Stdin)
-	init := 50
 	b := &board{
-		posX: init,
-		posY: init,
-		minX: init,
-		minY: init,
-		maxX: init,
-		maxY: init,
 		reader: reader,
 	}
-	b.setVal(15, 15, 1)  // empty
+	b.setVal(0, 0, 1)  // empty
 	intcode := compute.NewIntcode(buf, b)
 	if _, err := intcode.Run(); err != nil {
 		fmt.Printf("compute.Run: %v\n", err)
 		return
 	}
-	var blocks int
-	for _, row := range b.board {
-		for _, elem := range row {
-			if elem == 2 {
-				blocks++
-			}
-		}
-	}
-	fmt.Printf("blocks: %d\n", blocks)
 }
 
 type board struct {
 	posX, posY int
-	minX, minY int
-	maxX, maxY int
 
 	// 1 - north
 	// 2 - south
@@ -60,11 +43,7 @@ type board struct {
 	// 4 - east
 	lastMove int64
 	
-	// 0 - unknown
-	// 1 - empty
-	// 2 - wall
-	// 3 - oxygen
-	board [][]int
+	board maze.Board
 
 	reader *bufio.Reader
 }
@@ -92,7 +71,7 @@ func (b *board) Read() (int64, error) {
 			b.lastMove = 4
 			return 4, nil
 		} else if text == "p" {
-			b.print()
+			b.board.Print()
 		} else {
 			i, err := strconv.ParseInt(strings.TrimSpace(text), 10, 64)
 			if err != nil {
@@ -105,56 +84,8 @@ func (b *board) Read() (int64, error) {
 	}
 }
 
-func (b board) print() {
-	for y := b.minY; y <= b.maxY; y++ {
-		for x := b.minX; x <= b.maxX; x++ {
-			if y >= len(b.board[x]) {
-				fmt.Printf(" ")
-				continue
-			}
-			if x == b.posX && y == b.posY {
-				if b.board[x][y] == 3 {
-					fmt.Printf("*") // oxygen here
-				} else {
-					fmt.Printf("+")
-				}
-				continue
-			}
-			switch b.board[x][y] {
-			case 0:
-				fmt.Printf(" ")
-			case 1:
-				fmt.Printf(".")
-			case 2:
-				fmt.Printf("X")
-			case 3:
-				fmt.Printf("O")
-			}
-		}
-		fmt.Printf("\n")
-	}
-}
-
 func (b *board) setVal(posX, posY, val int) {
-	for posX >= len(b.board) {
-		b.board = append(b.board, nil)
-	}
-	for posY >= len(b.board[posX]) {
-		b.board[posX] = append(b.board[posX], 0)
-	}
-	b.board[posX][posY] = val
-	if posX < b.minX {
-		b.minX = posX
-	}
-	if posX > b.maxX {
-		b.maxX = posX
-	}
-	if posY < b.minY {
-		b.minY = posY
-	}
-	if posY > b.maxY {
-		b.maxY = posY
-	}
+	b.board.SetVal(posX, posY, val)
 }
 
 func (b *board) Write(val int64) error {
@@ -184,18 +115,6 @@ func (b *board) Write(val int64) error {
 		b.setVal(nextPosX, nextPosY, 3)
 		b.posX = nextPosX
 		b.posY = nextPosY
-	}
-	if b.posX < b.minX {
-		b.minX = b.posX
-	}
-	if b.posX > b.maxX {
-		b.maxX = b.posX
-	}
-	if b.posY < b.minY {
-		b.minY = b.posY
-	}
-	if b.posY > b.maxY {
-		b.maxY = b.posY
 	}
 	
 	return nil
