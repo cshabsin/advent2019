@@ -38,21 +38,10 @@ func main() {
 				fmt.Printf("ReadMove: %v\n", err)
 				return
 			}
-			io.Input <- move
-			val := <-io.Output
+			err = droid.ProcessMove(move, io)
 			if err != nil {
-				fmt.Printf("io.Read: %v\n", err)
+				fmt.Printf("droid.ProcessMove: %v\n", err)
 				return
-			}
-			switch move {
-			case 1: // north
-				droid.Move(0, -1, val, true)
-			case 2: // south
-				droid.Move(0, 1, val, true)
-			case 3: // west
-				droid.Move(-1, 0, val, true)
-			case 4: // east
-				droid.Move(1, 0, val, true)
 			}
 		}
 	}(droid, io)

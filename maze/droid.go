@@ -1,6 +1,11 @@
 package maze
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+
+	"github.com/cshabsin/advent2019/compute"
+)
 
 type Droid struct {
 	posX, posY int
@@ -11,6 +16,26 @@ func MakeDroid() *Droid {
 	return &Droid{
 		board: NewBoard(),
 	}
+}
+
+func (d *Droid) ProcessMove(move int64, io *compute.ChanIO) error {
+	select {
+	case io.Input <- move:
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("timeout injecting into Input")
+	}
+	val := <-io.Output
+	switch move {
+	case 1: // north
+		d.Move(0, -1, val, true)
+	case 2: // south
+		d.Move(0, 1, val, true)
+	case 3: // west
+		d.Move(-1, 0, val, true)
+	case 4: // east
+		d.Move(1, 0, val, true)
+	}
+	return nil
 }
 
 func (d *Droid) Move(dx, dy int, result int64, print bool) {
