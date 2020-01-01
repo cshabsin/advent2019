@@ -18,11 +18,12 @@ func MakeDroid() *Droid {
 	}
 }
 
-func (d *Droid) ProcessMove(move int64, io *compute.ChanIO) error {
+// Return true if move successful
+func (d *Droid) ProcessMove(move int64, io *compute.ChanIO) (bool, error) {
 	select {
 	case io.Input <- move:
 	case <-time.After(5 * time.Second):
-		return fmt.Errorf("timeout injecting into Input")
+		return false, fmt.Errorf("timeout injecting into Input")
 	}
 	val := <-io.Output
 	switch move {
@@ -35,7 +36,7 @@ func (d *Droid) ProcessMove(move int64, io *compute.ChanIO) error {
 	case 4: // east
 		d.Move(1, 0, val, true)
 	}
-	return nil
+	return val != 0, nil
 }
 
 func (d *Droid) Move(dx, dy int, result int64, print bool) {

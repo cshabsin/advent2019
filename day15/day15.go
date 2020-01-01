@@ -30,15 +30,20 @@ func main() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
 			move, err := ReadMove(reader)
-			if err == printBoard {
-				d.Print()
+			var m *ManualInputError
+			if errors.As(err, &m) {
+				if m.input == "p" {
+					d.Print()
+				} else {
+					fmt.Printf("invalid input %q", m.input)
+				}
 				continue
 			}
 			if err != nil {
 				fmt.Printf("ReadMove: %v\n", err)
 				return
 			}
-			err = droid.ProcessMove(move, io)
+			_, err = droid.ProcessMove(move, io)
 			if err != nil {
 				fmt.Printf("droid.ProcessMove: %v\n", err)
 				return
@@ -50,9 +55,16 @@ func main() {
 		fmt.Printf("compute.Run: %v\n", err)
 		return
 	}
+
 }
 
-var printBoard = errors.New("print board requested")
+type ManualInputError struct {
+	input string
+}
+
+func (m ManualInputError) Error() string {
+	return fmt.Sprintf("manual input %q", m.input)
+}
 
 func ReadMove(reader *bufio.Reader) (int64, error) {
 	fmt.Printf("input: ")
@@ -69,9 +81,11 @@ func ReadMove(reader *bufio.Reader) (int64, error) {
 		return 3, nil
 	} else if text == "e" {
 		return 4, nil
-	} else if text == "p" {
-		return 0, printBoard
 	} else {
-		return strconv.ParseInt(strings.TrimSpace(text), 10, 64)
+		val, err := strconv.ParseInt(text, 10, 64)
+		if err != nil {
+			return 0, &ManualInputError{text}
+		}
+		return val, nil
 	}
 }
