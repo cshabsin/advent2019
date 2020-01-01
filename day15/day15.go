@@ -23,7 +23,7 @@ func main() {
 		log.Fatal(err)
 	}
 	reader := bufio.NewReader(os.Stdin)
-	b := &board{
+	b := &manualBoard{
 		reader: reader,
 	}
 	b.setVal(0, 0, 1)  // empty
@@ -34,7 +34,7 @@ func main() {
 	}
 }
 
-type board struct {
+type manualBoard struct {
 	posX, posY int
 
 	// 1 - north
@@ -48,7 +48,7 @@ type board struct {
 	reader *bufio.Reader
 }
 
-func (b *board) Read() (int64, error) {
+func (b *manualBoard) Read() (int64, error) {
 	var text string
 	for {
 		fmt.Printf("input: ")
@@ -84,11 +84,11 @@ func (b *board) Read() (int64, error) {
 	}
 }
 
-func (b *board) setVal(posX, posY, val int) {
+func (b *manualBoard) setVal(posX, posY, val int) {
 	b.board.SetVal(posX, posY, val)
 }
 
-func (b *board) Write(val int64) error {
+func (b *manualBoard) Write(val int64) error {
 	nextPosX := b.posX
 	nextPosY := b.posY
 	switch b.lastMove {
