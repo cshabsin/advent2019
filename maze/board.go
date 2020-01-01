@@ -14,9 +14,11 @@ type Board struct {
 }
 
 func NewBoard() *Board {
-	return &Board{
+	b := Board{
 		board: [][]int{},
 	}
+	b.SetVal(0, 0, 1)
+	return &b
 }
 
 func (b *Board) padTop(yPad int) {
@@ -71,17 +73,29 @@ func (b *Board) SetVal(posX, posY, val int) {
 }
 
 func (b Board) Print() {
+	b.print(0, 0, false)
+}
+
+func (b Board) print(droidX, droidY int, include bool) {
 	for y := 0; y < len(b.board); y++ {
 		for x := 0; x < len(b.board[y]); x++ {
-			switch b.board[y][x] {
-			case 0:
-				fmt.Printf(" ")
-			case 1:
-				fmt.Printf(".")
-			case 2:
-				fmt.Printf("X")
-			case 3:
-				fmt.Printf("O")
+			if include && droidX+b.offsetX == x && droidY+b.offsetY == y {
+				if b.board[y][x] == 3 {
+					fmt.Printf("*")
+				} else {
+					fmt.Printf("+")
+				}
+			} else {
+				switch b.board[y][x] {
+				case 0:
+					fmt.Printf(" ")
+				case 1:
+					fmt.Printf(".")
+				case 2:
+					fmt.Printf("X")
+				case 3:
+					fmt.Printf("O")
+				}
 			}
 		}
 		fmt.Printf("\n")

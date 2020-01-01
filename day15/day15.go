@@ -24,9 +24,9 @@ func main() {
 	}
 	reader := bufio.NewReader(os.Stdin)
 	b := &manualBoard{
+		droid:  maze.MakeDroid(),
 		reader: reader,
 	}
-	b.setVal(0, 0, 1)  // empty
 	intcode := compute.NewIntcode(buf, b)
 	if _, err := intcode.Run(); err != nil {
 		fmt.Printf("compute.Run: %v\n", err)
@@ -35,7 +35,7 @@ func main() {
 }
 
 type manualBoard struct {
-	posX, posY int
+	droid *maze.Droid
 
 	// 1 - north
 	// 2 - south
@@ -43,8 +43,6 @@ type manualBoard struct {
 	// 4 - east
 	lastMove int64
 	
-	board maze.Board
-
 	reader *bufio.Reader
 }
 
@@ -71,7 +69,7 @@ func (b *manualBoard) Read() (int64, error) {
 			b.lastMove = 4
 			return 4, nil
 		} else if text == "p" {
-			b.board.Print()
+			b.droid.Print()
 		} else {
 			i, err := strconv.ParseInt(strings.TrimSpace(text), 10, 64)
 			if err != nil {
@@ -84,37 +82,16 @@ func (b *manualBoard) Read() (int64, error) {
 	}
 }
 
-func (b *manualBoard) setVal(posX, posY, val int) {
-	b.board.SetVal(posX, posY, val)
-}
-
 func (b *manualBoard) Write(val int64) error {
-	nextPosX := b.posX
-	nextPosY := b.posY
 	switch b.lastMove {
 	case 1: // north
-		nextPosY--
+		b.droid.Move(0, -1, val, true)
 	case 2: // south
-		nextPosY++
+		b.droid.Move(0, 1, val, true)
 	case 3: // west
-		nextPosX--
+		b.droid.Move(-1, 0, val, true)
 	case 4: // east
-		nextPosX++
-	}
-	switch val {
-	case 0:
-		fmt.Printf("wall at %d, %d; no move\n", nextPosX, nextPosY)
-		b.setVal(nextPosX, nextPosY, 2)
-	case 1:
-		fmt.Printf("moved to %d, %d\n", nextPosX, nextPosY)
-		b.setVal(nextPosX, nextPosY, 1)
-		b.posX = nextPosX
-		b.posY = nextPosY
-	case 2:
-		fmt.Printf("oxygen at %d, %d; moved in\n", nextPosX, nextPosY)
-		b.setVal(nextPosX, nextPosY, 3)
-		b.posX = nextPosX
-		b.posY = nextPosY
+		b.droid.Move(1, 0, val, true)
 	}
 	
 	return nil
