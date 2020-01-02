@@ -7,12 +7,14 @@ import (
 )
 
 type Droid struct {
+	io         *compute.ChanIO
 	posX, posY int
 	board      *Board
 }
 
-func MakeDroid() *Droid {
+func MakeDroid(io *compute.ChanIO) *Droid {
 	return &Droid{
+		io:    io,
 		board: NewBoard(),
 	}
 }
@@ -32,7 +34,7 @@ func Opposite(move int) int {
 	return 0
 }
 
-var dirs = map[int]struct{dx, dy int}{
+var dirs = map[int]struct{ dx, dy int }{
 	1: {0, -1},
 	2: {0, 1},
 	3: {-1, 0},
@@ -45,8 +47,8 @@ func (d Droid) LookDir(move int) int {
 	return d.board.GetVal(posX, posY)
 }
 
-func (d *Droid) ExpectMove(move int, io *compute.ChanIO, print bool) error {
-	success, err := d.ProcessMove(move, io, print)
+func (d *Droid) ExpectMove(move int, print bool) error {
+	success, err := d.ProcessMove(move, print)
 	if err != nil {
 		return err
 	}
@@ -57,12 +59,12 @@ func (d *Droid) ExpectMove(move int, io *compute.ChanIO, print bool) error {
 }
 
 // Return true if move successful
-func (d *Droid) ProcessMove(move int, io *compute.ChanIO, print bool) (bool, error) {
-	err := io.Write(int64(move))
+func (d *Droid) ProcessMove(move int, print bool) (bool, error) {
+	err := d.io.Write(int64(move))
 	if err != nil {
 		return false, err
 	}
-	val, err := io.Read()
+	val, err := d.io.Read()
 	if err != nil {
 		return false, err
 	}
@@ -99,4 +101,8 @@ func (d *Droid) Move(dx, dy int, result int64, print bool) {
 
 func (d Droid) Print() {
 	d.board.print(d.posX, d.posY, true)
+}
+
+func (d *Droid) CloseIO () {
+	d.io.Close()
 }
