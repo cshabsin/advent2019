@@ -72,6 +72,18 @@ func (b *Board) SetVal(posX, posY, val int) {
 	b.board[y][x] = val
 }
 
+func (b Board) GetVal(posX, posY int) int {
+	y := posY + b.offsetY
+	if y < 0 || y >= len(b.board){
+		return 0
+	}
+	x := posX + b.offsetX
+	if x < 0 || x >= len(b.board[y]) {
+		return 0
+	}
+	return b.board[y][x]
+}
+
 func (b Board) Print() {
 	b.print(0, 0, false)
 }

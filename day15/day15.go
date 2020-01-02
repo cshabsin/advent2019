@@ -26,7 +26,8 @@ func main() {
 
 	droid := maze.MakeDroid()
 	aIO, bIO := compute.NewChanIO()
-	go ManualRobot(droid, aIO)
+	//	go ManualRobot(droid, aIO)
+	go MappingRobot(droid, aIO)
 
 	intcode := compute.NewIntcode(buf, bIO)
 	if _, err := intcode.Run(); err != nil {
@@ -34,6 +35,67 @@ func main() {
 		return
 	}
 
+}
+
+func MappingRobot(d *maze.Droid, io *compute.ChanIO) {
+	err := Map(d, io)
+	if err != nil {
+		fmt.Printf("Map: %v\n", err)
+	}
+	d.Print()
+	io.Close()
+}
+
+func Map(d *maze.Droid, io *compute.ChanIO) error {
+	print := false
+	var undoMoves []int
+	for {
+		if print {
+			fmt.Print("\n")
+		}
+		var successes []int
+		for dir := 1; dir <= 4; dir++ {
+			if d.LookDir(dir) != 0 {
+				continue // already known
+			}
+			success, err := d.ProcessMove(dir, io, print)
+			if err != nil {
+				return err
+			}
+			if success {
+				if err := d.ExpectMove(maze.Opposite(dir), io, print); err != nil {
+					return err
+				}
+				successes = append(successes, dir)
+			}
+		}
+		if len(successes) == 0 {
+			for i := len(undoMoves)-1; i>=0; i-- {
+				if err := d.ExpectMove(undoMoves[i], io, print); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if len(successes) == 1 {
+			if err := d.ExpectMove(successes[0], io, print); err != nil {
+				return err
+			}
+			undoMoves = append(undoMoves, maze.Opposite(successes[0]))
+			continue
+		}
+		for _, nextDir := range successes {
+			if err := d.ExpectMove(nextDir, io, print); err != nil {
+				return err
+			}
+			if err := Map(d, io); err != nil {
+				return err
+			}
+			if err := d.ExpectMove(maze.Opposite(nextDir), io, print); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 func ManualRobot(d *maze.Droid, io *compute.ChanIO) {
@@ -54,7 +116,7 @@ func ManualRobot(d *maze.Droid, io *compute.ChanIO) {
 			fmt.Printf("ReadMove: %v\n", err)
 			return
 		}
-		_, err = d.ProcessMove(move, io)
+		_, err = d.ProcessMove(int(move), io, true)
 		if err != nil {
 			fmt.Printf("droid.ProcessMove: %v\n", err)
 			return

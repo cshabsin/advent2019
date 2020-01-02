@@ -17,7 +17,7 @@ func MakeDroid() *Droid {
 	}
 }
 
-func Opposite(move int64) int64 {
+func Opposite(move int) int {
 	switch move {
 	case 1:
 		return 2
@@ -32,9 +32,33 @@ func Opposite(move int64) int64 {
 	return 0
 }
 
+var dirs = map[int]struct{dx, dy int}{
+	1: {0, -1},
+	2: {0, 1},
+	3: {-1, 0},
+	4: {1, 0}}
+
+func (d Droid) LookDir(move int) int {
+	diff := dirs[move]
+	posX := d.posX + diff.dx
+	posY := d.posY + diff.dy
+	return d.board.GetVal(posX, posY)
+}
+
+func (d *Droid) ExpectMove(move int, io *compute.ChanIO, print bool) error {
+	success, err := d.ProcessMove(move, io, print)
+	if err != nil {
+		return err
+	}
+	if !success {
+		return fmt.Errorf("failure of expected successful move")
+	}
+	return nil
+}
+
 // Return true if move successful
-func (d *Droid) ProcessMove(move int64, io *compute.ChanIO) (bool, error) {
-	err := io.Write(move)
+func (d *Droid) ProcessMove(move int, io *compute.ChanIO, print bool) (bool, error) {
+	err := io.Write(int64(move))
 	if err != nil {
 		return false, err
 	}
@@ -42,16 +66,8 @@ func (d *Droid) ProcessMove(move int64, io *compute.ChanIO) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	switch move {
-	case 1: // north
-		d.Move(0, -1, val, true)
-	case 2: // south
-		d.Move(0, 1, val, true)
-	case 3: // west
-		d.Move(-1, 0, val, true)
-	case 4: // east
-		d.Move(1, 0, val, true)
-	}
+	diff := dirs[move]
+	d.Move(diff.dx, diff.dy, val, print)
 	return val != 0, nil
 }
 
