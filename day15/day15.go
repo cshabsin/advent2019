@@ -23,10 +23,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	droid := maze.MakeDroid()
-	io := compute.NewChanIO()
-	go ManualRobot(droid, io)
-	intcode := compute.NewIntcode(buf, io)
+	aIO, bIO := compute.NewChanIO()
+	go ManualRobot(droid, aIO)
+
+	intcode := compute.NewIntcode(buf, bIO)
 	if _, err := intcode.Run(); err != nil {
 		fmt.Printf("compute.Run: %v\n", err)
 		return

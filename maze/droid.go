@@ -2,7 +2,6 @@ package maze
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/cshabsin/advent2019/compute"
 )
@@ -18,14 +17,31 @@ func MakeDroid() *Droid {
 	}
 }
 
+func Opposite(move int64) int64 {
+	switch move {
+	case 1:
+		return 2
+	case 2:
+		return 1
+	case 3:
+		return 4
+	case 4:
+		return 3
+	}
+	fmt.Printf("Opposite: unexpected input %d\n", move)
+	return 0
+}
+
 // Return true if move successful
 func (d *Droid) ProcessMove(move int64, io *compute.ChanIO) (bool, error) {
-	select {
-	case io.Input <- move:
-	case <-time.After(5 * time.Second):
-		return false, fmt.Errorf("timeout injecting into Input")
+	err := io.Write(move)
+	if err != nil {
+		return false, err
 	}
-	val := <-io.Output
+	val, err := io.Read()
+	if err != nil {
+		return false, err
+	}
 	switch move {
 	case 1: // north
 		d.Move(0, -1, val, true)
