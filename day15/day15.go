@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -29,7 +30,7 @@ func main() {
 	go MappingRobot(droid)
 
 	intcode := compute.NewIntcode(buf, bIO)
-	if _, err := intcode.Run(); err != nil {
+	if _, err := intcode.Run(); err != nil && !errors.Is(err, io.EOF) {
 		fmt.Printf("compute.Run: %v\n", err)
 		return
 	}

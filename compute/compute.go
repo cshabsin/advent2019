@@ -114,7 +114,7 @@ func (i *Intcode) Run() ([]int64, error) {
 			// IN
 			val, err := i.read()
 			if err != nil {
-				return nil, fmt.Errorf("IN: %v at IP %d", err, i.ip)
+				return nil, fmt.Errorf("IN: %w at IP %d", err, i.ip)
 			}
 			i.setMemoryByParam(0, val)
 			opwidth = 2
@@ -198,6 +198,7 @@ func (i *Intcode) Run() ([]int64, error) {
 			opwidth = 2
 		case 99:
 			// EXIT
+			i.io.Close()
 			return i.memory, nil
 		default:
 			return nil, fmt.Errorf("Invalid opcode %d at IP %d", i.memory[i.ip], i.ip)
