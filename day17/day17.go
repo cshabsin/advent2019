@@ -60,5 +60,24 @@ func main() {
 		fmt.Printf("compute.Run: %v\n", err)
 		return
 	}
-
+	var total int
+	for y, row := range board {
+		for x, val := range row {
+			if val != 1 {
+				continue
+			}
+			if y == 0 || y == len(board)-1 || x == 0 || x == len(row)-1 {
+				// first/last row can't have an intersection
+				continue
+			}
+			if row[x-1] != 1 || row[x+1] != 1 {
+				continue
+			}
+			if board[y-1][x] != 1 || board[y+1][x] != 1 {
+				continue
+			}
+			total += x*y
+		}
+	}
+	fmt.Printf("sum of alignment params: %d\n", total)
 }
