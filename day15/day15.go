@@ -25,37 +25,39 @@ func main() {
 	}
 	droid := maze.MakeDroid()
 	io := compute.NewChanIO()
-	go func(d *maze.Droid, io *compute.ChanIO) {
-		defer io.Close()
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			move, err := ReadMove(reader)
-			var m *ManualInputError
-			if errors.As(err, &m) {
-				if m.input == "p" {
-					d.Print()
-				} else {
-					fmt.Printf("invalid input %q", m.input)
-				}
-				continue
-			}
-			if err != nil {
-				fmt.Printf("ReadMove: %v\n", err)
-				return
-			}
-			_, err = droid.ProcessMove(move, io)
-			if err != nil {
-				fmt.Printf("droid.ProcessMove: %v\n", err)
-				return
-			}
-		}
-	}(droid, io)
+	go ManualRobot(droid, io)
 	intcode := compute.NewIntcode(buf, io)
 	if _, err := intcode.Run(); err != nil {
 		fmt.Printf("compute.Run: %v\n", err)
 		return
 	}
 
+}
+
+func ManualRobot(d *maze.Droid, io *compute.ChanIO) {
+	defer io.Close()
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		move, err := ReadMove(reader)
+		var m *ManualInputError
+		if errors.As(err, &m) {
+			if m.input == "p" {
+				d.Print()
+			} else {
+				fmt.Printf("invalid input %q\n", m.input)
+			}
+			continue
+		}
+		if err != nil {
+			fmt.Printf("ReadMove: %v\n", err)
+			return
+		}
+		_, err = d.ProcessMove(move, io)
+		if err != nil {
+			fmt.Printf("droid.ProcessMove: %v\n", err)
+			return
+		}
+	}
 }
 
 type ManualInputError struct {
