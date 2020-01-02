@@ -74,7 +74,7 @@ func (b *Board) SetVal(posX, posY, val int) {
 
 func (b Board) GetVal(posX, posY int) int {
 	y := posY + b.offsetY
-	if y < 0 || y >= len(b.board){
+	if y < 0 || y >= len(b.board) {
 		return 0
 	}
 	x := posX + b.offsetX
@@ -82,6 +82,17 @@ func (b Board) GetVal(posX, posY int) int {
 		return 0
 	}
 	return b.board[y][x]
+}
+
+// Edges returns minX, minY, maxX, maxY
+func (b Board) Edges() (int, int, int, int) {
+	width := 0
+	for _, row := range b.board {
+		if len(row) > width {
+			width = len(row)
+		}
+	}
+	return -b.offsetX, -b.offsetY, len(b.board) - b.offsetX, width - b.offsetY
 }
 
 func (b Board) Print() {

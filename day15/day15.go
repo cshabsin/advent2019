@@ -26,7 +26,6 @@ func main() {
 
 	aIO, bIO := compute.NewChanIO()
 	droid := maze.MakeDroid(aIO)
-	//	go ManualRobot(droid)
 	go MappingRobot(droid)
 
 	intcode := compute.NewIntcode(buf, bIO)
@@ -35,6 +34,42 @@ func main() {
 		return
 	}
 
+	if !droid.OxygenFound() {
+		fmt.Printf("oxygen not found\n")
+		return
+	}
+
+	board := droid.Board()
+	minX, minY, maxX, maxY := board.Edges()
+	var steps int
+	for {
+		var found bool
+		for y := minY; y <= maxY; y++ {
+			for x := minX; x <= maxX; x++ {
+				if board.GetVal(x, y) == 3 {
+					for _, dir := range maze.Dirs {
+						if board.GetVal(x+dir.DX, y+dir.DY) == 1 {
+							board.SetVal(x+dir.DX, y+dir.DY, 4)
+							found = true
+						}
+					}
+				}
+			}
+		}
+		for y := minY; y <= maxY; y++ {
+			for x := minX; x <= maxX; x++ {
+				if board.GetVal(x, y) == 4 {
+					board.SetVal(x, y, 3)
+				}
+			}
+		}
+		if !found {
+			break
+		}
+		steps++
+	}
+	board.Print()
+	fmt.Printf("steps: %d\n", steps)
 }
 
 func MappingRobot(d *maze.Droid) {
