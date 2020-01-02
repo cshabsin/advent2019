@@ -18,7 +18,7 @@ func main() {
 		log.Fatal(err)
 	}
 	mapper := droneCtl{buf}
-	mapper.partOne()
+	mapper.partTwo()
 }
 
 func (d droneCtl) partOne() {
@@ -40,6 +40,35 @@ func (d droneCtl) partOne() {
 		fmt.Printf("\n")
 	}
 	fmt.Printf("count: %d\n", count)
+}
+
+func (d droneCtl) partTwo() {
+	x := 0
+	y := 99
+	for {
+		for {
+			moving, err := d.sendDrone(x, y)
+			if err != nil {
+				fmt.Printf("at (%d, %d): %v\n", x, y, err)
+				return
+			}
+			if moving {
+				// found left edge
+				good, err := d.sendDrone(x+99, y-99)
+				if err != nil {
+					fmt.Printf("at (%d, %d): %v\n", x+99, y-99, err)
+					return
+				}
+				if good {
+					fmt.Printf("found a match at (%d, %d): %d\n", x, y-99, x*10000 + (y-99))
+					return
+				}
+				break
+			}
+			x++
+		}
+		y++
+	}
 }
 
 type droneCtl struct {
