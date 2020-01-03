@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cshabsin/advent2019/compute"
 )
@@ -9,11 +10,18 @@ import (
 type Network struct {
 	computers []computer
 	nIOs      []*compute.ChanIO
-	stage []int
+	stage     []int
+
+	nat *nat
 }
 
 func NewNetwork() *Network {
-	return &Network{}
+	n := &Network{}
+	n.nat = &nat{
+		activityChan: make(chan bool),
+		n:            n,
+	}
+	return n
 }
 
 func (n *Network) AddComputer(buf []int64, id int) {
@@ -39,6 +47,7 @@ func (n *Network) Run() {
 		go c.run(fin)
 		go n.dispatch(i)
 	}
+	go n.nat.monitor()
 	for _ = range n.computers {
 		<-fin
 	}
@@ -64,6 +73,7 @@ func (n *Network) dispatch(id int) {
 				break
 			}
 		}
+		n.nat.tickle()
 		nIO.NonBlocking = false
 		x, err := nIO.Read()
 		if err != nil {
@@ -76,24 +86,27 @@ func (n *Network) dispatch(id int) {
 			continue
 		}
 
-		fmt.Printf("(%d)sending to %d: %d, %d\n", id, addr, x, y)
-		
+		//		fmt.Printf("(%d)sending to %d: %d, %d\n", id, addr, x, y)
+
 		if addr == 255 {
-			fmt.Printf("sent to 255: %d, %d\n", x, y)
+			n.nat.update(x, y)
+			continue
 		}
-		
+
 		if int(addr) >= len(n.computers) {
 			fmt.Printf("invalid address %d\n", addr)
 			continue
 		}
 
-		nIO := n.nIOs[int(addr)]
-		
-		if err := nIO.WriteMulti(x, y); err != nil {
+		if err := n.SendTo(int(addr), x, y); err != nil {
 			fmt.Printf("WriteMulti(%d) x: %v\n", err)
 			return
 		}
 	}
+}
+
+func (n *Network) SendTo(addr int, x, y int64) error {
+	return n.nIOs[addr].WriteMulti(x, y)
 }
 
 type computer struct {
@@ -108,4 +121,50 @@ func (c *computer) run(fin chan bool) {
 		fmt.Printf("Run(%d): %v\n", c.id, err)
 	}
 	fin <- true
+}
+
+func (c computer) isIdle() bool {
+	return c.io.Idle()
+}
+
+type nat struct {
+	x, y         int64
+	prevX, prevY int64
+
+	activityChan chan bool
+	n            *Network
+}
+
+// update returns true if the values are unchanged
+func (nat *nat) update(x, y int64)  {
+	nat.x, nat.y = x, y
+}
+
+func (nat *nat) tickle() {
+	nat.activityChan <- true
+}
+
+func (nat *nat) monitor() {
+	<-nat.activityChan
+	for {
+		select {
+		case <-nat.activityChan:
+		case <-time.After(100 * time.Millisecond):
+			idle := true
+			for _, c := range nat.n.computers {
+				if !c.isIdle() {
+					idle = false
+					break
+				}
+			}
+			if idle {
+				fmt.Printf("NAT activated: %d, %d\n", nat.x, nat.y)
+				nat.n.SendTo(0, nat.x, nat.y)
+				if nat.x == nat.prevX && nat.y == nat.prevY {
+					fmt.Println("Repeated values!")
+				}
+				nat.prevX, nat.prevY = nat.x, nat.y
+			}
+		}
+	}
 }

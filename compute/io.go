@@ -54,6 +54,7 @@ type ChanIO struct {
 
 	Name string
 
+	idle bool
 	writeSem chan bool
 }
 
@@ -72,15 +73,17 @@ func NewChanIO() (*ChanIO, *ChanIO) {
 	}
 }
 
-func (b ChanIO) Write(val int64) error {
+func (b *ChanIO) Write(val int64) error {
 	b.writeSem <- true
+	b.idle = false
 	b.Output <- val
 	<-b.writeSem
 	return nil
 }
 
-func (b ChanIO) WriteMulti(vals ...int64) error {
+func (b *ChanIO) WriteMulti(vals ...int64) error {
 	b.writeSem <- true
+	b.idle = false
 	for _, val := range vals {
 		b.Output <- val
 	}
@@ -88,19 +91,21 @@ func (b ChanIO) WriteMulti(vals ...int64) error {
 	return nil
 }
 
-func (b ChanIO) Read() (int64, error) {
+func (b *ChanIO) Read() (int64, error) {
 	t := 5*time.Second
 	if b.NonBlocking {
 		t = 1*time.Second
 	}
 	select {
 	case res, ok := <-b.Input:
+		b.idle = false
 		if !ok {
 			return 0, io.EOF
 		}
 		return res, nil
 	case <-time.After(t):
 		if b.NonBlocking {
+			b.idle = true
 			return -1, nil
 		}
 		return 0, fmt.Errorf("timeout in Read")
@@ -109,4 +114,8 @@ func (b ChanIO) Read() (int64, error) {
 
 func (b ChanIO) Close() {
 	close(b.Output)
+}
+
+func (b ChanIO) Idle() bool {
+	return b.idle
 }
