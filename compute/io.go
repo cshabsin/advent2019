@@ -49,27 +49,50 @@ func NewBufIO(inputs []int64) *BufIO {
 type ChanIO struct {
 	Input  chan int64
 	Output chan int64
+
+	NonBlocking bool
+
+	Name string
+
+	writeSem chan bool
 }
 
 func NewChanIO() (*ChanIO, *ChanIO) {
-	a := make(chan int64)
-	b := make(chan int64)
+	a := make(chan int64, 30)
+	b := make(chan int64, 30)
 	// no buffering, in order to help catch errors
 	return &ChanIO{
-			Input:  a,
-			Output: b,
-		}, &ChanIO{
-			Input:  b,
-			Output: a,
-		}
+		Input:  a,
+		Output: b,
+		writeSem: make(chan bool, 1),
+	}, &ChanIO{
+		Input:  b,
+		Output: a,
+		writeSem: make(chan bool, 1),
+	}
 }
 
 func (b ChanIO) Write(val int64) error {
+	b.writeSem <- true
 	b.Output <- val
+	<-b.writeSem
+	return nil
+}
+
+func (b ChanIO) WriteMulti(vals ...int64) error {
+	b.writeSem <- true
+	for _, val := range vals {
+		b.Output <- val
+	}
+	<-b.writeSem
 	return nil
 }
 
 func (b ChanIO) Read() (int64, error) {
+	t := 5*time.Second
+	if b.NonBlocking {
+		t = 1*time.Second
+	}
 	select {
 	case res, ok := <-b.Input:
 		if !ok {
@@ -77,6 +100,9 @@ func (b ChanIO) Read() (int64, error) {
 		}
 		return res, nil
 	case <-time.After(5 * time.Second):
+		if b.NonBlocking {
+			return -1, nil
+		}
 		return 0, fmt.Errorf("timeout in Read")
 	}
 }
