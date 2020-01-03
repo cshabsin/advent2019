@@ -55,12 +55,12 @@ func main() {
 	for {
 		move, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Printf("ReadString: %v", err)
+			fmt.Printf("ReadString: %v\n", err)
 			break
 		}
 		for _, r := range move {
 			if err := aIO.Write(int64(r)); err != nil {
-				fmt.Printf("Write: %v", err)
+				fmt.Printf("Write: %v\n", err)
 				break
 			}
 		}
