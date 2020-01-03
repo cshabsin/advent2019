@@ -99,7 +99,7 @@ func (b ChanIO) Read() (int64, error) {
 			return 0, io.EOF
 		}
 		return res, nil
-	case <-time.After(5 * time.Second):
+	case <-time.After(t):
 		if b.NonBlocking {
 			return -1, nil
 		}
