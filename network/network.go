@@ -83,6 +83,7 @@ func (n *Network) dispatch(id int) {
 		}
 		
 		if int(addr) >= len(n.computers) {
+			fmt.Printf("invalid address %d\n", addr)
 			continue
 		}
 
