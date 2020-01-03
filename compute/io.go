@@ -51,10 +51,11 @@ type ChanIO struct {
 	Output chan int64
 
 	NonBlocking bool
+	NoTimeout   bool
 
 	Name string
 
-	idle bool
+	idle     bool
 	writeSem chan bool
 }
 
@@ -63,14 +64,14 @@ func NewChanIO() (*ChanIO, *ChanIO) {
 	b := make(chan int64, 30)
 	// no buffering, in order to help catch errors
 	return &ChanIO{
-		Input:  a,
-		Output: b,
-		writeSem: make(chan bool, 1),
-	}, &ChanIO{
-		Input:  b,
-		Output: a,
-		writeSem: make(chan bool, 1),
-	}
+			Input:    a,
+			Output:   b,
+			writeSem: make(chan bool, 1),
+		}, &ChanIO{
+			Input:    b,
+			Output:   a,
+			writeSem: make(chan bool, 1),
+		}
 }
 
 func (b *ChanIO) Write(val int64) error {
@@ -92,9 +93,16 @@ func (b *ChanIO) WriteMulti(vals ...int64) error {
 }
 
 func (b *ChanIO) Read() (int64, error) {
-	t := 5*time.Second
+	t := 5 * time.Second
 	if b.NonBlocking {
-		t = 1*time.Second
+		t = 1 * time.Second
+	}
+	if b.NoTimeout {
+		res, ok := <-b.Input
+		if !ok {
+			return 0, io.EOF
+		}
+		return res, nil
 	}
 	select {
 	case res, ok := <-b.Input:
