@@ -40,6 +40,7 @@ type AsciiIO struct {
 	cmdIndex int
 
 	state string
+	room  string
 }
 
 func (a *AsciiIO) Write(val int64) error {
@@ -52,6 +53,9 @@ func (a *AsciiIO) Write(val int64) error {
 			a.state = "lighter"
 		} else if strings.Contains(a.lastLine, "heavier") {
 			a.state = "heavier"
+		}
+		if strings.HasPrefix(a.lastLine, "== ") {
+			a.room = a.lastLine[3:len(a.lastLine)-3]
 		}
 		a.lastLine = ""
 	} else {
