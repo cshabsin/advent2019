@@ -34,10 +34,11 @@ type AsciiIO struct {
 	lastMsg  string
 	lastLine string
 
-	cmdChan  chan string // buffer of 1
-	hasCmd   bool
-	cmd      string
-	cmdIndex int
+	cmdChan    chan string
+	chanActive bool
+	hasCmd     bool
+	cmd        string
+	cmdIndex   int
 
 	state string
 	room  string
@@ -55,7 +56,7 @@ func (a *AsciiIO) Write(val int64) error {
 			a.state = "heavier"
 		}
 		if strings.HasPrefix(a.lastLine, "== ") {
-			a.room = a.lastLine[3:len(a.lastLine)-3]
+			a.room = a.lastLine[3 : len(a.lastLine)-3]
 		}
 		a.lastLine = ""
 	} else {
@@ -71,11 +72,11 @@ func (a *AsciiIO) Read() (int64, error) {
 		if a.cmdChan == nil {
 			a.cmdChan = make(chan string, 1)
 		}
-		select {
-		case cmd := <- a.cmdChan:
+		if a.chanActive {
+			cmd := <-a.cmdChan
 			fmt.Printf("> %s\n", cmd)
 			a.SetCmd(cmd)
-		default:
+		} else {
 			if err := a.ReadFromUser(); err != nil {
 				return 0, err
 			}
@@ -97,94 +98,99 @@ func (a *AsciiIO) SetCmd(cmd string) {
 }
 
 func (a *AsciiIO) StreamCmds(cmds []string) {
-	ready := make(chan bool)
+	fmt.Printf("> %s\n", cmds[0])
+	a.SetCmd(cmds[0])
+	a.chanActive = true
 	go func() {
-		sent := false
-		for _, cmd := range cmds {
+		for _, cmd := range cmds[1:] {
 			a.cmdChan <- cmd
-			if !sent {
-				sent = true
-				ready <- true
-			}
 		}
+		a.chanActive = false
 	}()
-	<-ready
+}
+
+var items = []string{
+	"astronaut ice cream",
+	"mouse",
+	"ornament",
+	"easter egg",
+	"hypercube",
+	"prime number",
+	"wreath",
+	"mug",
+}
+
+func (a *AsciiIO) Search() {
+	a.chanActive = true
+	go func() {
+		for _ = range items {
+		}
+		a.chanActive = false
+	}()
 }
 
 func (a *AsciiIO) ReadFromUser() error {
-	for {
-		fmt.Print("> ")
-		move, err := a.reader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		move = strings.TrimSpace(move)
-		if move == "state" {
-			fmt.Printf("state: %s\n", a.state)
-			return nil
-		} else if move == "n" {
-			a.SetCmd("north")
-			return nil
-		} else if move == "s" {
-			a.SetCmd("south")
-			return nil
-		} else if move == "e" {
-			a.SetCmd("east")
-			return nil
-		} else if move == "w" {
-			a.SetCmd("west")
-			return nil
-		} else if move == "dropall" {
-			a.StreamCmds([]string{
-				"drop astronaut ice cream",
-				"drop mouse",
-				"drop ornament",
-				"drop easter egg",
-				"drop hypercube",
-				"drop prime number",
-				"drop wreath",
-				"drop mug",
-			})
-			return nil
-		} else if move == "go" {
-			a.StreamCmds([]string{
-				"north",
-				"take astronaut ice cream",
-				"south",
-				"west",
-				"take mouse",
-				"north",
-				"take ornament",
-				"west",
-				"north",
-				"take easter egg",
-				"east",
-				"take hypercube",
-				"north",
-				"east",
-				"take prime number",
-				"west",
-				"south",
-				"west",
-				"north",
-				"west",
-				"north",
-				"take wreath",
-				"south",
-				"east",
-				"south",
-				"south",
-				"west",
-				"take mug",
-				"west",
-				"inv",
-			})
-			return nil
-		} else {
-			a.SetCmd(move)
-			return nil
-		}
+	fmt.Print("> ")
+	move, err := a.reader.ReadString('\n')
+	if err != nil {
+		return err
 	}
+	move = strings.TrimSpace(move)
+	if move == "state" {
+		fmt.Printf("state: %s\n", a.state)
+	} else if move == "n" {
+		a.SetCmd("north")
+	} else if move == "s" {
+		a.SetCmd("south")
+	} else if move == "e" {
+		a.SetCmd("east")
+	} else if move == "w" {
+		a.SetCmd("west")
+	} else if move == "dropall" {
+		var cmds []string
+		for _, i := range items {
+			cmds = append(cmds, "drop "+i)
+		}
+		a.StreamCmds(cmds)
+	} else if move == "go" {
+		a.StreamCmds([]string{
+			"north",
+			"take astronaut ice cream",
+			"south",
+			"west",
+			"take mouse",
+			"north",
+			"take ornament",
+			"west",
+			"north",
+			"take easter egg",
+			"east",
+			"take hypercube",
+			"north",
+			"east",
+			"take prime number",
+			"west",
+			"south",
+			"west",
+			"north",
+			"west",
+			"north",
+			"take wreath",
+			"south",
+			"east",
+			"south",
+			"south",
+			"west",
+			"take mug",
+			"west",
+			"inv",
+		})
+	} else if move == "search" {
+		a.Search()
+	} else {
+		a.SetCmd(move)
+	}
+	return nil
 }
 
 func (a *AsciiIO) Close() {
