@@ -98,7 +98,9 @@ func (b *ChanIO) Read() (int64, error) {
 		t = 1 * time.Second
 	}
 	if b.NoTimeout {
+		b.idle = true
 		res, ok := <-b.Input
+		b.idle = false
 		if !ok {
 			return 0, io.EOF
 		}
