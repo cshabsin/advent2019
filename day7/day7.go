@@ -17,37 +17,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for a := 0; a < 5; a++ {
-		vals := []int{a}
-		for b := 0; b < 5; b++ {
-			if contains(vals, b) {
-				continue
-			}
-			vals = append(vals, b)
-			for c := 0; c < 5; c++ {
-				if contains(vals, c) {
-					continue
-				}
-				vals = append(vals, c)
-				for d := 0; d < 5; d++ {
-					if contains(vals, d) {
-						continue
-					}
-					vals = append(vals, d)
-					for e := 0; e < 5; e++ {
-						if contains(vals, e) {
-							continue
-						}
-						vals = append(vals, e)
-						fmt.Printf("%v: %d\n", vals, run(buf, vals))
-						vals = vals[0:4]
-					}
-					vals = vals[0:3]
-				}
-				vals = vals[0:2]
-			}
-			vals = vals[0:1]
-		}
+	for _, vals := range permutations([]int{0, 1, 2, 3, 4}, nil) {
+		fmt.Printf("%v: %d\n", vals, run(buf, vals))
 	}
 }
 
@@ -72,4 +43,35 @@ func contains(vals []int, v int) bool {
 		}
 	}
 	return false
+}
+
+func makeArr(arr []int, v int) []int {
+	out := make([]int, 0, len(arr)+1)
+	for _, a := range arr {
+		out = append(out, a)
+	}
+	out = append(out, v)
+	return out
+}
+
+func permutations(vals []int, in [][]int) [][]int {
+	if in == nil {
+		in = [][]int{}
+		for v := range vals {
+			in = append(in, []int{v})
+		}
+	}
+	out := [][]int{}
+	for _, inVal := range in {
+		for _, v := range vals {
+			if contains(inVal, v) {
+				continue
+			}
+			out = append(out, makeArr(inVal, v))
+		}
+	}
+	if len(out[0]) == len(vals) {
+		return out
+	}
+	return permutations(vals, out)
 }
