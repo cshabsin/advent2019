@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-	fmt.Printf("g(0): %v, g(1): %v, g(2): %v\n", Gray(0), Gray(1), Gray(2))
 	content, err := ioutil.ReadFile("input.txt")
 	if err != nil {
 		log.Fatal(err)
@@ -134,7 +133,6 @@ func (a *AsciiIO) Search() {
 		//		a.echo = false
 		found := make([]int, 256)
 		inv := 255
-		fmt.Printf("Gray(7): %v\n", Gray(7))
 		for _, bit := range Gray(7) {
 			a.state = ""
 			if inv&(1<<bit) != 0 {
