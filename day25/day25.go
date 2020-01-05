@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	fmt.Printf("g(0): %v, g(1): %v, g(2): %v\n", Gray(0), Gray(1), Gray(2))
 	content, err := ioutil.ReadFile("input.txt")
 	if err != nil {
 		log.Fatal(err)
@@ -26,6 +27,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	io := &AsciiIO{
 		reader:  reader,
+		echo:    true,
 		cmdChan: make(chan string),
 		readSem: make(chan bool),
 		eof:     make(chan bool),
@@ -42,6 +44,8 @@ type AsciiIO struct {
 	lastMsg  string
 	lastLine string
 
+	echo bool
+
 	cmdChan  chan string
 	eof      chan bool
 	hasCmd   bool
@@ -49,22 +53,21 @@ type AsciiIO struct {
 	cmdIndex int
 
 	readTrigger bool
-	readSem  chan bool
+	readSem     chan bool
 
 	state string
 	room  string
 }
 
 func (a *AsciiIO) Write(val int64) error {
-	// add echo state
 	if val < 0 || val > 255 {
 		return fmt.Errorf("invalid Write: %d", val)
 	}
 	if val == 10 {
 		if strings.Contains(a.lastLine, "lighter") {
-			a.state = "lighter"
+			a.state = "too heavy"
 		} else if strings.Contains(a.lastLine, "heavier") {
-			a.state = "heavier"
+			a.state = "too light"
 		}
 		if strings.HasPrefix(a.lastLine, "== ") {
 			a.room = a.lastLine[3 : len(a.lastLine)-3]
@@ -73,7 +76,9 @@ func (a *AsciiIO) Write(val int64) error {
 	} else {
 		a.lastLine += string(rune(val))
 	}
-	fmt.Printf("%c", rune(val))
+	if a.echo {
+		fmt.Printf("%c", rune(val))
+	}
 	a.lastMsg += string(rune(val))
 	return nil
 }
@@ -100,28 +105,73 @@ func (a *AsciiIO) Read() (int64, error) {
 }
 
 var items = []string{
-	"astronaut ice cream",
-	"mouse",
-	"ornament",
-	"easter egg",
-	"hypercube",
-	"prime number",
-	"wreath",
-	"mug",
+	"astronaut ice cream", // 0 -> 1
+	"mouse",               // 1 -> 2
+	"ornament",            // 2 -> 4
+	"easter egg",          // 3 -> 8
+	"hypercube",           // 4 -> 16
+	"prime number",        // 5 -> 32
+	"wreath",              // 6 -> 64
+	"mug",                 // 7 -> 128
+}
+
+// returns the list of bits to permute for an n-bit gray code.
+func Gray(n int) []int {
+	if n == 0 {
+		return []int{0}
+	}
+	g := Gray(n - 1)
+	l := len(g)
+	g = append(g, n)
+	for i := 0; i < l; i++ {
+		g = append(g, g[l-1-i])
+	}
+	return g
 }
 
 func (a *AsciiIO) Search() {
 	go func() {
-		for _ = range items {
+		//		a.echo = false
+		found := make([]int, 256)
+		inv := 255
+		fmt.Printf("Gray(7): %v\n", Gray(7))
+		for _, bit := range Gray(7) {
+			a.state = ""
+			if inv&(1<<bit) != 0 {
+				a.SendCmd("drop "+items[bit], true)
+			} else {
+				a.SendCmd("take "+items[bit], true)
+			}
+			inv ^= 1 << bit
+			a.SendCmd("north", true)
+			a.Wait()
+			if a.state == "" {
+				found[inv] = 3
+				fmt.Printf("found it: %d\n", inv)
+				fmt.Print(a.lastMsg)
+				a.echo = true
+				a.SendCmd("inv", true)
+				return
+			} else if a.state == "too light" {
+				found[inv] = 2
+			} else if a.state == "too heavy" {
+				found[inv] = 1
+			}
 		}
+		a.echo = true
+		fmt.Printf("found: %v\n", found)
 	}()
 }
 
-func (a *AsciiIO) SendCmd(cmd string, print bool) {
+func (a *AsciiIO) Wait() {
 	if a.readTrigger {
 		<-a.readSem
 		a.readTrigger = false
 	}
+}
+
+func (a *AsciiIO) SendCmd(cmd string, print bool) {
+	a.Wait()
 	if print {
 		fmt.Printf("> %s\n", cmd)
 	}
@@ -148,6 +198,8 @@ func (a *AsciiIO) ReadLoop() {
 		move = strings.TrimSpace(move)
 		if move == "state" {
 			fmt.Printf("state: %s\n", a.state)
+		} else if move == "echo" {
+			a.echo = true
 		} else if move == "n" {
 			a.SendCmd("north", false)
 		} else if move == "s" {
