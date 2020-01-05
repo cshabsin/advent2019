@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -22,7 +24,13 @@ func main() {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	io := &AsciiIO{reader: reader}
+	io := &AsciiIO{
+		reader:  reader,
+		cmdChan: make(chan string),
+		readSem: make(chan bool),
+		eof:     make(chan bool),
+	}
+	go io.ReadLoop()
 	intcode := compute.NewIntcode(buf, io)
 	if _, err := intcode.Run(); err != nil {
 		fmt.Printf("Run: %v\n", err)
@@ -34,11 +42,12 @@ type AsciiIO struct {
 	lastMsg  string
 	lastLine string
 
-	cmdChan    chan string
-	chanActive bool
-	hasCmd     bool
-	cmd        string
-	cmdIndex   int
+	cmdChan  chan string
+	readSem  chan bool
+	eof      chan bool
+	hasCmd   bool
+	cmd      string
+	cmdIndex int
 
 	state string
 	room  string
@@ -69,17 +78,14 @@ func (a *AsciiIO) Write(val int64) error {
 
 func (a *AsciiIO) Read() (int64, error) {
 	for !a.hasCmd {
-		if a.cmdChan == nil {
-			a.cmdChan = make(chan string, 1)
-		}
-		if a.chanActive {
-			cmd := <-a.cmdChan
-			fmt.Printf("> %s\n", cmd)
-			a.SetCmd(cmd)
-		} else {
-			if err := a.ReadFromUser(); err != nil {
-				return 0, err
-			}
+		a.readSem <- true
+		select {
+		case cmd := <-a.cmdChan:
+			a.cmdIndex = 0
+			a.cmd = cmd
+			a.hasCmd = true
+		case <-a.eof:
+			return 0, io.EOF
 		}
 	}
 	if a.cmdIndex == len(a.cmd) {
@@ -89,24 +95,6 @@ func (a *AsciiIO) Read() (int64, error) {
 	rc := int64(a.cmd[a.cmdIndex])
 	a.cmdIndex++
 	return rc, nil
-}
-
-func (a *AsciiIO) SetCmd(cmd string) {
-	a.cmdIndex = 0
-	a.cmd = cmd
-	a.hasCmd = true
-}
-
-func (a *AsciiIO) StreamCmds(cmds []string) {
-	fmt.Printf("> %s\n", cmds[0])
-	a.SetCmd(cmds[0])
-	a.chanActive = true
-	go func() {
-		for _, cmd := range cmds[1:] {
-			a.cmdChan <- cmd
-		}
-		a.chanActive = false
-	}()
 }
 
 var items = []string{
@@ -121,76 +109,94 @@ var items = []string{
 }
 
 func (a *AsciiIO) Search() {
-	a.chanActive = true
 	go func() {
 		for _ = range items {
 		}
-		a.chanActive = false
 	}()
 }
 
-func (a *AsciiIO) ReadFromUser() error {
-	fmt.Print("> ")
-	move, err := a.reader.ReadString('\n')
-	if err != nil {
-		return err
+func (a *AsciiIO) SendCmd(cmd string, print, trigger bool) {
+	if trigger {
+		<-a.readSem
 	}
-	move = strings.TrimSpace(move)
-	if move == "state" {
-		fmt.Printf("state: %s\n", a.state)
-	} else if move == "n" {
-		a.SetCmd("north")
-	} else if move == "s" {
-		a.SetCmd("south")
-	} else if move == "e" {
-		a.SetCmd("east")
-	} else if move == "w" {
-		a.SetCmd("west")
-	} else if move == "dropall" {
-		var cmds []string
-		for _, i := range items {
-			cmds = append(cmds, "drop "+i)
+	if print {
+		fmt.Printf("> %s\n", cmd)
+	}
+	a.cmdChan <- cmd
+}
+
+func (a *AsciiIO) ReadLoop() {
+	for {
+		<-a.readSem
+		fmt.Print("> ")
+		move, err := a.reader.ReadString('\n')
+		if err != nil {
+			a.eof <- true
+			if !errors.Is(err, io.EOF) {
+				fmt.Printf("ReadString: %v\n", err)
+			}
+			return
 		}
-		a.StreamCmds(cmds)
-	} else if move == "go" {
-		a.StreamCmds([]string{
-			"north",
-			"take astronaut ice cream",
-			"south",
-			"west",
-			"take mouse",
-			"north",
-			"take ornament",
-			"west",
-			"north",
-			"take easter egg",
-			"east",
-			"take hypercube",
-			"north",
-			"east",
-			"take prime number",
-			"west",
-			"south",
-			"west",
-			"north",
-			"west",
-			"north",
-			"take wreath",
-			"south",
-			"east",
-			"south",
-			"south",
-			"west",
-			"take mug",
-			"west",
-			"inv",
-		})
-	} else if move == "search" {
-		a.Search()
-	} else {
-		a.SetCmd(move)
+		move = strings.TrimSpace(move)
+		if move == "state" {
+			fmt.Printf("state: %s\n", a.state)
+		} else if move == "n" {
+			a.SendCmd("north", false, false)
+		} else if move == "s" {
+			a.SendCmd("south", false, false)
+		} else if move == "e" {
+			a.SendCmd("east", false, false)
+		} else if move == "w" {
+			a.SendCmd("west", false, false)
+		} else if move == "dropall" {
+			trigger := false
+			for _, i := range items {
+				a.SendCmd("drop "+i, true, trigger)
+				trigger = true
+			}
+		} else if move == "go" {
+			trigger := false
+			for _, cmd := range []string{
+				"north",
+				"take astronaut ice cream",
+				"south",
+				"west",
+				"take mouse",
+				"north",
+				"take ornament",
+				"west",
+				"north",
+				"take easter egg",
+				"east",
+				"take hypercube",
+				"north",
+				"east",
+				"take prime number",
+				"west",
+				"south",
+				"west",
+				"north",
+				"west",
+				"north",
+				"take wreath",
+				"south",
+				"east",
+				"south",
+				"south",
+				"west",
+				"take mug",
+				"west",
+				"inv",
+			} {
+				a.SendCmd(cmd, true, trigger)
+				trigger = true
+			}
+		} else if move == "search" {
+			a.Search()
+		} else {
+			a.SendCmd(move, false, false)
+		}
 	}
-	return nil
 }
 
 func (a *AsciiIO) Close() {
