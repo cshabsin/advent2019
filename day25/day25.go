@@ -43,11 +43,13 @@ type AsciiIO struct {
 	lastLine string
 
 	cmdChan  chan string
-	readSem  chan bool
 	eof      chan bool
 	hasCmd   bool
 	cmd      string
 	cmdIndex int
+
+	readTrigger bool
+	readSem  chan bool
 
 	state string
 	room  string
@@ -115,19 +117,25 @@ func (a *AsciiIO) Search() {
 	}()
 }
 
-func (a *AsciiIO) SendCmd(cmd string, print, trigger bool) {
-	if trigger {
+func (a *AsciiIO) SendCmd(cmd string, print bool) {
+	if a.readTrigger {
 		<-a.readSem
+		a.readTrigger = false
 	}
 	if print {
 		fmt.Printf("> %s\n", cmd)
 	}
 	a.cmdChan <- cmd
+	a.readTrigger = true
 }
 
 func (a *AsciiIO) ReadLoop() {
+	a.readTrigger = true
 	for {
-		<-a.readSem
+		if a.readTrigger {
+			<-a.readSem
+			a.readTrigger = false
+		}
 		fmt.Print("> ")
 		move, err := a.reader.ReadString('\n')
 		if err != nil {
@@ -141,21 +149,18 @@ func (a *AsciiIO) ReadLoop() {
 		if move == "state" {
 			fmt.Printf("state: %s\n", a.state)
 		} else if move == "n" {
-			a.SendCmd("north", false, false)
+			a.SendCmd("north", false)
 		} else if move == "s" {
-			a.SendCmd("south", false, false)
+			a.SendCmd("south", false)
 		} else if move == "e" {
-			a.SendCmd("east", false, false)
+			a.SendCmd("east", false)
 		} else if move == "w" {
-			a.SendCmd("west", false, false)
+			a.SendCmd("west", false)
 		} else if move == "dropall" {
-			trigger := false
 			for _, i := range items {
-				a.SendCmd("drop "+i, true, trigger)
-				trigger = true
+				a.SendCmd("drop "+i, true)
 			}
 		} else if move == "go" {
-			trigger := false
 			for _, cmd := range []string{
 				"north",
 				"take astronaut ice cream",
@@ -188,13 +193,12 @@ func (a *AsciiIO) ReadLoop() {
 				"west",
 				"inv",
 			} {
-				a.SendCmd(cmd, true, trigger)
-				trigger = true
+				a.SendCmd(cmd, true)
 			}
 		} else if move == "search" {
 			a.Search()
 		} else {
-			a.SendCmd(move, false, false)
+			a.SendCmd(move, false)
 		}
 	}
 }
