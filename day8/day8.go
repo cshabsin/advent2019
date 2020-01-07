@@ -46,19 +46,21 @@ func main() {
 		layers = append(layers, newLayer())
 	}
 	fmt.Printf("minProd: %d\n", minProd)
-	var zlid, minZeroes int
-	minZeroes = 1000
-	for lid, l := range layers {
-		zeroes := l.Count(0)
-		if zeroes < minZeroes {
-			minZeroes = zeroes
-			zlid = lid
+
+	for y := 0; y < 6; y++ {
+		for x := 0; x < 25; x++ {
+			for _, l := range layers {
+				if l[y][x] == 0 {
+					fmt.Print(" ")
+					break
+				} else if l[y][x] == 1 {
+					fmt.Print("X")
+					break
+				}
+			}
 		}
+		fmt.Print("\n")
 	}
-	fmt.Printf("min zeroes: %d (layer %d)\n", minZeroes, zlid)
-	o := layers[zlid].Count(1)
-	t := layers[zlid].Count(2)
-	fmt.Printf("ones: %d, twos: %d, product: %d\n", o, t, o*t)
 }
 
 type layer [][]int
@@ -86,16 +88,4 @@ func (l layer) Set(y, x int, content byte)  {
 		fmt.Printf("invalid byte %d\n", content)
 	}
 	l[y][x] = v
-}
-
-func (l layer) Count(v int) int {
-	var ct int
-	for _, r := range l {
-		for _, c := range r {
-			if c == v {
-				ct++
-			}
-		}
-	}
-	return ct
 }
