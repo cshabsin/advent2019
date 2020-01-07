@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 
@@ -17,9 +19,25 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	var maxVals []int
+	var max int64
 	for _, vals := range permutations([]int{0, 1, 2, 3, 4}, nil) {
-		fmt.Printf("%v: %d\n", vals, run(buf, vals))
+		v := run(buf, vals)
+		if v > max {
+			maxVals = vals
+			max = v
+		}
 	}
+	fmt.Printf("%v: %d\n", maxVals, max)
+
+	for _, vals := range permutations([]int{5, 6, 7, 8, 9}, nil) {
+		v := runFeedback(buf, vals)
+		if v > max {
+			maxVals = vals
+			max = v
+		}
+	}
+	fmt.Printf("%v: %d\n", maxVals, max)
 }
 
 func run(buf []int64, vals []int) int64 {
@@ -34,6 +52,49 @@ func run(buf []int64, vals []int) int64 {
 		in = io.Output()[0]
 	}
 	return in
+}
+
+func runFeedback(buf []int64, vals []int) int64 {
+	var aIOs []*compute.ChanIO
+
+	for i, val := range vals {
+		aIO, bIO := compute.NewChanIO()
+		computer := compute.NewIntcode(buf, bIO)
+		err := aIO.Write(int64(val))
+		if err != nil {
+			fmt.Printf("Write(%d): %v\n", i, err)
+			return 0
+		}
+		aIOs = append(aIOs, aIO)
+		go func(i int) {
+			_, err := computer.Run()
+			if err != nil {
+				fmt.Printf("computers[%d].Run: %v\n", i, err)
+			}
+		}(i)
+	}
+	var in int64
+	iterations := 0
+	for {
+		for i := range vals {
+			err := aIOs[i].Write(in)
+			if err != nil {
+				fmt.Printf("aIOs[%d].Write(%d): %v\n", i, err)
+				return 0
+			}
+			newIn, err := aIOs[i].Read()
+			if errors.Is(err, io.EOF) {
+				return in
+			}
+			if err != nil {
+				fmt.Printf("aIOs[%d].Read(%d): %v\n", i, err)
+				return 0
+			}
+			in = newIn
+		}
+		iterations++
+	}
+
 }
 
 func contains(vals []int, v int) bool {
@@ -57,7 +118,7 @@ func makeArr(arr []int, v int) []int {
 func permutations(vals []int, in [][]int) [][]int {
 	if in == nil {
 		in = [][]int{}
-		for v := range vals {
+		for _, v := range vals {
 			in = append(in, []int{v})
 		}
 	}

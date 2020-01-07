@@ -62,7 +62,6 @@ type ChanIO struct {
 func NewChanIO() (*ChanIO, *ChanIO) {
 	a := make(chan int64, 30)
 	b := make(chan int64, 30)
-	// no buffering, in order to help catch errors
 	return &ChanIO{
 			Input:    a,
 			Output:   b,
